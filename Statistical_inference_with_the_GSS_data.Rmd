@@ -1,0 +1,625 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+editor_options: 
+  chunk_output_type: inline
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE, echo=FALSE}
+suppressMessages(library(ggplot2))
+suppressMessages(library(dplyr))
+suppressMessages(library(statsr))
+suppressMessages(library(patchwork))
+suppressMessages(library(magrittr))
+```
+
+### Load data
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+------------------------------------------------------------------------
+
+## Part 1: Data
+
+------------------------------------------------------------------------
+
+[The General Social Survey (GSS)](http://gss.norc.org/About-The-GSS) is a natonally represented survey of adults in the United State on the contemporary Amarican Society in order to monitor and explain trends in opinions, attitudes and behaviors. It contains a standard core of demographic, behavioral and attittudual questions amongst a wide range of topics such as civil liberties, crime and violence, intergroup tolerance, morality, national spending priorities, psychological well-being, social mobility, and stress and traumatic events.\
+These among many others makes the [GSS](http://gss.norc.org/About-The-GSS) the single best source for sociological and attitudinal trend data covering the United State.\
+The target population of the GSS as already mentioned above are adults (18+) living in households in the United States. The Sample is drawn using an area probability design that randomly selects respondents in households from a mix of urban, suburban, and rural geographic areas across the United States. This method attempts to nave a representation of all socio-economic classes in the United Stated for the survey.
+
+### Sampling bias
+
+Sampling bias sterns from unequal representation of sampled respondents, participants or subjecs of a study. In this study, target respondents are members of households in the Unites States. This sampling technique ignores individuals living in college dorms, military quarters and persons living in sheltered housing (nursing homes and long term care facilities). Also up until 2006, they [GSS](http://gss.norc.org/About-The-GSS) only sampled the English speaking population of the United States which is obviously not a representative sample of the American population. Native American, Spanish, Chinese, Tagalog, French among others were all excluded from the sample until 2006.
+
+Until 2006 the GSS only sampled the English speaking population. As defined for the GSS in 1983-1987, 98% of the adult household population is English speaking. Spanish speakers typically make up 60-65% of the language exclusions. About a dozen languages make up the remaining exclusions. Starting in 2006 the GSS samples Spanish speakers in addition to English speakers. Hence, the data collected via the **supposed** random probability sampling technique may not be truly representative of the population.
+
+### Scope of Inference
+
+Data in this study is collected via face-to-face interview conducted at the University of Chicago by [NORC](https://www.norc.org/Pages/default.aspx). Since there is no random assignment of respondents to groups and hence researchers only observed but do not effect the outcome of the study, causal inference cannot be made but rather an association inference. With a probability random sampling approach employed, the inference of association between subjects or variables made can be generalized to the whole population.
+
+------------------------------------------------------------------------
+
+## Part 2: Research question
+
+**Research Question 1: Of particular interest to both researchers and the public is the average age of the woman at first-birth. According to [Mathews and Hamilton, (2009)](https://www.semanticscholar.org/paper/Delayed-childbearing%3A-more-women-are-having-their-Matthews-Hamilton/4921cf57f397d3feb8e669201f1e5d3c4fc0d473), age at first birth influences the total number of birth a woman might have in her life, this in-turn impacts the size, composition and future growth of the population. In 2006, the General Social Survey collected responses on 2507 American women on their ages at their first birth, what then was the average age of females in the USA at a 95% confidence interval when they had their first born child?**
+
+**Research Question 2: According to the National Hospital Care Survey, the average age at which women have their first born child was 25 years in 2006. Data collected by the General Social Survey in 2006 from a sample of 2507 adult females indicates (95% confidence Interval) an average age of 22.4476 to 23.0039). Does the observed data provide convincing evidence that the average age of women at first birth is indeed less than 25? (Significance level = 0.05)**
+
+**Research Question 3: According to the [BBC](https://www.bbc.com/news/world-us-canada-41488081), the US has the largest civilian gun-owning population in the world. [EVERYTOWN](https://everytownresearch.org/report/gun-violence-in-america/) reports that more than 100 Americans are shot to death and more than 200 are wounded each day. Homicides committed with firearms peaked in 1993 at 17,075 according to the [National Institute of Justice](https://nij.ojp.gov/topics/articles/gun-violence-america#note3) making it one of the worst years in US history, What then, is the proportion of Americans who possessed firearms at home in 1993 (95% confidence interval)**
+
+------------------------------------------------------------------------
+
+## Part 3: Exploratory data analysis
+
+------------------------------------------------------------------------
+
+### Question 1
+
+-   Data\
+    From the data collected by the [GSS](http://gss.norc.org/About-The-GSS), the required variables for this inference/inquiry are the `caseid`, `year`,`sex` and `agekdbrn` variables. And in the variables `year` and `sex`, we are interested in ***2006*** and ***Female***, respectively. Below is the first and last 10 rows of the data matrix.
+
+```{r data matrix_q1, echo = TRUE}
+
+#Extracting the data of interest
+gss[
+  gss[ ,"year"] == 2006 & gss[ ,"sex"] == "Female",
+  c(
+    "caseid",
+    "year",
+    "agekdbrn",
+    "sex"
+  )
+] -> data_agekdbrn 
+
+#Attaching Data
+attach(
+  data_agekdbrn
+)
+
+#Printing first and last 5 rows of the data
+data.table::as.data.table(
+  data_agekdbrn
+)
+
+```
+
+The above data matrix shows how entries are organised in the data matrix - `data_agekdbrn`. It also highlights the sample size of ***`r nrow(data_agekdbrn)`*** for the study.
+
+-   Distribution of responses\
+    The data collected reported ***`r length(agekdbrn[is.na(agekdbrn)])`*** non-responses and a total of ***`r length(agekdbrn[!is.na(agekdbrn)])`*** for the variable in question `agekdbrn` == `age at first birth`. Below is a bar chart representing the distribution of responses and non responses.
+
+```{r Barchart for Responses and Nons, echo = TRUE, fig.height = 5.5, fig.width = 8}
+
+data.frame(
+  Res = c(
+    "Responses",
+    "Non-responses"
+  ),
+  Freq = c(
+    length(agekdbrn[!is.na(agekdbrn)]),
+    length(agekdbrn[is.na(agekdbrn)])
+  )
+) -> Responses
+
+ggplot(
+  data = Responses,
+  aes(x = Res,
+      y = Freq)
+  ) + 
+    geom_bar(
+      stat = "identity",
+      fill = c("darkgreen", "grey")
+    ) + 
+  labs(
+    title = "Distribution of Responses and Non- responses",
+    x = "Levels",
+    y = "Frequency"
+  ) + 
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      hjust = 0.5,
+      size = 15
+    ),
+    axis.title = element_text(
+      face = "bold",
+      size = 13
+    ),
+    axis.text = element_text(
+      face = "bold",
+      size = 12
+    )
+  ) -> dist_categories
+
+# Graph
+dist_categories
+```
+The above illustrates the number of complete and incomplete cases of the response on the inquiry; `Age when you had your first child ?`  
+
+-   Summary Statistics/ Shape of the Distribution\
+    The summary statistics gives a general overview of the distribution via the most basic statistics. These include the `minimum`, `maximum`, `mean`, `median`, `percentile` values etc.
+
+```{r summary stats for agekdbrn}
+
+summary(
+  data_agekdbrn[ ,"agekdbrn"]
+)
+
+```
+
+The summary statistics of the distribution reports a minimum value of 13, 25th quartile mark of 19, a median of 21, a mean of 22.73, a 3rd quartile of 26, a maximum value of 51 and a total of 1227 of missing values.
+
+-   Graph\
+    Below is a graphical representation of the above summary of statistics via box and whisker plot, and histogram.
+
+```{r Boxplot_agekdbrn, echo = TRUE, fig.height = 8, fig.width = 8, warning = FALSE}
+
+# Generating a box and whisker plot, and a histogram for the shape of the distro ####
+# Generating a boxplot for the distribution of the ages
+ggplot(data = data_agekdbrn, aes(x = agekdbrn)) + 
+  geom_boxplot(col = "darkgreen", lwd = 0.8) + 
+  labs(
+    title = "Distribution of Ages of Women at their first birth",
+    x = "",
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, face = "bold")
+  ) -> boxplot
+
+
+#Generating a histogram for the distribution of the ages of women at their first birth
+ggplot(data = data_agekdbrn,
+  aes(x = agekdbrn)
+) + 
+  geom_histogram(aes(y = stat(density)), bins = 45, fill = "darkgreen") + 
+  geom_density(col = "black", size = 1.3) +
+  geom_vline(xintercept = c(
+      mean(agekdbrn, na.rm = T),
+      median(agekdbrn, na.rm = T)
+    ),
+    size = 1.2, col = c("darkblue","red")
+  ) +
+  labs(x = "Age at first birth", y = "Frequency",title = "") + 
+  annotate(
+    "text", 
+    x = c(mean(agekdbrn, na.rm = T) + 1.58, median(agekdbrn, na.rm = T) - 1.7),
+    y = rep(0.14, times = 2),
+    label = c(
+      "mean",
+      "median"
+      ),
+    size = 4
+  )  +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 15),
+    axis.title = element_text(size = 13, face = "bold"),
+    axis.text = element_text(size = 12, face = "bold")
+  ) -> histogram
+
+#Plotting both on the same graph sheet 
+suppressWarnings(
+  expr = (boxplot / histogram),
+  classes = "warning"
+)
+
+```
+
+Although either of the plots might seem redundant in the presence of the other, each complements the other in various aspects. The box and whisker plot communicates the over all shape and vital statistics of the distribution with the thick vertical line representing the median and the width of the box representing the inter-quartile range whereas the histogram presents in more vivid and revealing way the shape of the distribution.\
+The data is centered around ***`r mean(data_agekdbrn[, "agekdbrn"], na.rm = T)`*** with a range of ***`r diff(range(agekdbrn, na.rm = T))`*** and a standard error of ***`r sd(agekdbrn, na.rm = T)/sqrt(nrow(data_agekdbrn))`*** from the mean.
+
+### Question 2
+
+-   Data\
+    This inference is via a hypothesis test and it is a derivative concerning the preceding question above and therefore sharers the dame data as the `Question 1`.\
+
+```{r distribution of responses, echo = TRUE, fig.height = 5.5, fig.width = 8}
+
+#Distribution of responses
+dist_categories
+
+```
+
+The above distribution reports a ***`r length(agekdbrn[is.na(agekdbrn)])`*** total of non-responses and ***`r length(agekdbrn[!is.na(agekdbrn)])`*** for responses out a sample of ***`r nrow(data_agekdbrn)`*** women in other words, number of complete cases.
+
+-   Summary Statistics\
+    This presents the `maximum`, `minimum`, `center`, `spread` and `range` statistics of the `age of womwn at first birth distribution`
+
+```{r summary statistics, message = FALSE, echo = TRUE}
+
+# Summary statistics for the Respoonses on Question ####
+data.frame(
+  Statistics = c(
+    "Min",
+    "1st Quartile",
+    "Median",
+    "Mean",
+    "Standard Deviation",
+    "3rd Quartile",
+    "Max",
+    "Range",
+    "NAs"
+  ),
+  Value = c(
+    min(
+      agekdbrn, 
+      na.rm = T
+    ),
+    quantile(
+      agekdbrn, 
+      probs = 0.25, 
+      na.rm = T
+    ),
+    median(
+      agekdbrn, 
+      na.rm = T
+    ),
+    mean(
+      agekdbrn, 
+      na.rm = T
+    ),
+    sd(
+      agekdbrn, na.rm = T
+    ),
+    quantile(
+      agekdbrn, 
+      probs = 0.75, 
+      na.rm = T
+    ),
+    max(
+      agekdbrn, 
+      na.rm = T
+    ),
+    diff(
+      range(agekdbrn, na.rm = T)),
+    length(
+     agekdbrn[is.na(agekdbrn)] 
+    )
+  )
+)
+
+```
+
+As indicated in the summary statistics for question 1, the minimum, maximum and total missing values are 13, 51, 1227 respectively. The distribution appears to be centered around a value of 22.72578.
+
+### Question 3
+
+-   Data\
+    Data for this inference involves the variables`caseid`,`year`==`1993`and`owngun\`. The first and last 5 rows of the data is printed below.
+
+```{r Proportion, echo = TRUE, message = FALSE}
+
+# Extracting Data required data ####
+gss[
+  gss[ ,"year"] == 1993,
+  c(
+    "caseid",
+    "year",
+    "owngun"
+  )
+] |>
+  data.table::as.data.table() -> data_gun
+
+#Attaching Data
+attach(data_gun)
+
+#Printing to Screen the required dataset
+print(
+  data_gun
+)
+
+```
+
+For this inference, a sample of ***`r nrow(data_gun)`*** was obtained to give their responses on `own a gun at home` question.
+
+-   Distribution of Data\
+    The sample has distribution of ***`r nrow(data_gun)`*** respondents and out of this ***`r length(owngun[owngun == "Yes"])`*** responded `Yes`, ***`r length(owngun[owngun == "No"])`*** responded `No` and ***`r length(owngun[is.na(owngun)])`*** missing.
+
+```{r Distribution of responses, echo = TRUE}
+
+# Summary table of the distribution of responses on gun ownership ####
+data.frame(
+  Responses = c(
+    "Yes",
+    "No",
+    "Refused",
+    "NA"
+  ),
+  Frequency = c(
+    length(
+      which(
+        owngun == "Yes"
+      )
+    ),
+    length(
+      which(
+        owngun == "No"
+      )
+    ),
+    length(
+      which(
+        owngun == "Refused"
+      )
+    ),
+    length(
+      which(
+        is.na(
+          owngun
+        )
+      )
+    )
+  )
+) -> Dist_responses
+
+#Printing to Screen
+print(Dist_responses)
+
+```
+
+-   Barplot of the distribution of Responses\
+    This illustrates how each of the categories: **`r unique(owngun)`** frequents the distribution of responses on gun ownership.\`
+
+```{r summ Stats, echo = TRUE, fig.height = 5.5, fig.width = 8}
+
+# Generating a barplot for Responses on Gun ownership ####
+ggplot(
+  data = Dist_responses,
+  aes(
+    x = Responses,
+    y = Frequency,
+    fill = Responses 
+  )
+) + 
+  geom_bar(
+    stat = "identity"
+  ) +
+  labs(
+    title = "Distribution of Responses on Gun Ownership",
+    x = "Response",
+    y = "Frequency"
+  ) + 
+  theme(
+    plot.title = element_text(
+      size = 15,
+      face = "bold",
+      hjust = 0.5
+    ),
+    axis.text = element_text(
+      size = 13
+    ),
+    axis.title = element_text(
+      size = 12,
+      face = "bold"
+    ),
+    legend.title = element_text(
+      face = "bold",
+      size = 13
+    )
+  )
+
+```
+
+The above plot shows the distribution of responses on the question of gun ownership in the US for the year 1993. ***`r length(which(owngun == "Yes"))`*** persons responded `Yes`, ***`r length(which(owngun == "No"))`*** responded `No`, ***`r length(which(owngun == "Refused"))`*** refused to provide a response and ***`r length(which(is.na(owngun)))`*** were missing.\
+But we are only interested in complete cases, therefore the distribution of required data is
+
+```{r required data, echo = TRUE, fig.height = 5.5, fig.width = 8}
+
+# Extracting the required data ####
+data_gun %<>%
+  as.data.frame() %>%
+  transform(
+    owngun = as.character(owngun)
+  ) %>%
+  subset(
+    !(is.na(owngun) | owngun %in% "Refused")
+  ) 
+
+# Generating the Distribution plot ####
+ggplot(
+  data = data_gun,
+  aes(
+    x = owngun
+  )
+) + 
+  geom_bar(
+    fill = c(
+      "grey",
+      "darkgreen"
+    )
+  ) + 
+  labs(
+    title = "Distribution of Responses on Gun Ownership",
+    x = "Response",
+    y = "Frequency"
+  ) + 
+  theme(
+    plot.title = element_text(
+      size = 15,
+      face = "bold",
+      hjust = 0.5
+    ),
+    axis.text = element_text(
+      size = 13
+    ),
+    axis.title = element_text(
+      size = 12,
+      face = "bold"
+    ),
+    legend.title = element_text(
+      face = "bold",
+      size = 13
+    )
+  )
+  
+
+```
+
+The `Yes` responses occupies a proportion of ***`r length(which(owngun == "Yes")) / nrow(data_gun)`*** of the sample, whereas those who responded `No`make  ***`r length(which(owngun == "Refused"))/nrow(data_gun)`*** of the total proportion.
+
+------------------------------------------------------------------------
+
+## Part 4: Inference
+
+------------------------------------------------------------------------
+
+### Question 1
+
+This inference is to estimate for the year 2006 the mean age of women in the US when they had their first born child. The data collected for this inference reports the following statistics:\
+
+-   $n$ = ***`r nrow(data_agekdbrn)`*** sampled but ***`r nrow(data_agekdbrn[!is.na(data_agekdbrn[ ,"agekdbrn"]), ])`*** responded\
+-   $\bar{x}$ = ***`r mean(agekdbrn, na.rm = T)`***\
+-   $S$ = ***`r sd(agekdbrn, na.rm = T)`***
+
+To estimate $\mu$, we use inference via ***Confidence Interval***, which employs the concept of the ***Central Limit theorem***. But first to be able to do so, the following conditions need to be met.
+
+-   Condition of Independence:
+
+    -   Sample Observations must be independent: Thus observations must be randomly sampled or if its an experimental study, subjects must be randomly assigned to groups. In the context of this inference, the General Social Survey employed a random probability sampling technique to select respondents of the survey and hence the condition of random sampling/assignment is met.\
+
+    -   If sampling without replacement, $n$ must be greater than ***10%*** of the population. Since ***`r nrow(data_agekdbrn)`*** less than 10% of women in the US, and therefore highly unlikely for more persons from the same household to be included in the sample, hence, the condition is satisfied.\
+        These ensure that observations or subjects are independent of each other.
+
+-   Sample Size/Skew Condition:
+
+    -   $n$ $\geq$ 30, or larger if the population is very skewed. $n$ in this regard is ***`r nrow(data_agekdbrn[!is.na(data_agekdbrn[ ,"agekdbrn"]), ])`*** and sufficiently $>$ 30 since the population of ages of women at first birth is right skewed.
+
+With all the Conditions met, we would expect the sampling distribution of the observed ages to be distributed nearly normally with $\bar{x}$ = $\mu$ and ${SE}$ = $\frac{\sigma}{\sqrt n}$, as the ***Central Limit Theorem*** holds. The ***Central Limit Theorem*** states that, sampling distribution will be nearly normal with mean centered at the population mean and standard error equal to population standard deviation divided by square root of the sample size. Thus, $\bar{X} \sim \text{Normal}(\bar{x}=\mu, {SE}=\frac{\sigma}{\sqrt n})$. We proceed to conduct our inference via theoritical meanss opposesd to sumulation based mehtods.
+
+We therefore make inference via confidence interval using theoretical method and which is also based on the ***normal distribution theory***. It states that, ***68%***, ***95%*** and ***99.7%*** of nearly normally distributed observations will fall within ***1***, ***2*** and ***3*** standard errors, respectively.
+
+The ***Confidence Interval*** is a defined as a plausible range of values for the population parameter and is denoted by $CI$ = $\bar{x}$ $\pm$ ${z}$ ${*}$ ${SE}$, where ${z}$ is the critical value corresponding the middle $xx$% of the normal distribution, ${SE}$ = $\frac{\sigma}{\sqrt n}$ and ${z}$${*}$ ${SE}$ is the margin of error. since we usually do not have access to ${\sigma}$,we use ${s}$ from the sample.
+
+#### Inference
+
+```{r Inference via CI, echo = TRUE, fig.height = 5.5, fig.width = 8}
+
+# Inference via Confidence Interval ####
+statsr::inference(
+  y = agekdbrn,
+  data = data_agekdbrn,
+  type = "ci",
+  method = "theoretical",
+  statistic = "mean",
+  conf_level = 0.95
+)
+
+
+```
+
+From the analysis above, the survey reported a 95% confidence interval of ***(22.4476 , 23.0039)*** around the mean of 22.7258. We are therefore 95% confident that adult women (18+) on the average, have their first born child at the ages 22.4476 to 23.0039 in the year 2006.\
+Nonetheless in the context of the data, a 95% confidence interval means, 95% of random samples of ***`r nrow(data_agekdbrn[!is.na(data_agekdbrn[ ,"agekdbrn"]), ])`*** adult American women will yield confidence intervals that captures the true population mean of the age of women when they had their first born child.
+
+### Question 2
+
+This inference is a follow up to the question 1. It is inference via hypothesis test of the confidence interval calculated earlier. Earlier we calculated a ***(22.4476 , 23.0039)*** confidence interval for the average age at which women have their first birth in 2006. We are therefore testing the claim that, indeed the average age of women at first birth in the US in the 2006 is not equal to the underlying the knowledge of an average of 25 years. The test statement for the hypothesis is:\
+$\mu$ $=$ average age of women when they have their first born child
+
+$H_o: \mu_{agekdbrn} = 25$\
+$H_1: \mu_{agekdbrn} < 25$
+
+where ***agekdbrn*** is age of women(18+) when they had their first born child
+
+But first, lets check some conditions. This is because this is a method that rely on the ***Central Limit Theorem***.
+
+-   Condition of Independence:
+
+    -   Sample Observations must be independent: Thus observations must be randomly sampled or if its an experimental study, subjects must be randomly assigned to groups. In the context of this inference, the General Social Survey employed a random probability sampling technique to select respondents of the survey and hence the condition of random sampling/assignment is met.\
+
+    -   If sampling without replacement, $n$ must be greater than ***10%*** of the population. Since ***`r nrow(data_agekdbrn)`*** less than 10% of women in the US, and therefore highly unlikely for more persons from the same household to be included in the sample, hence, the condition is satisfied. These ensure that observations or subjects are independent of each other.
+
+-   Sample Size/Skew Condition:
+
+    -   $n$ $\geq$ 30, or larger if the population is very skewed. $n$ in this regard is ***`r nrow(data_agekdbrn[!is.na(data_agekdbrn[ ,"agekdbrn"]), ])`*** and sufficiently $>$ 30 since the population of ages of women at first birth is right skewed.\
+        Therefore, we would expect our sampling distribution to be nearly normally distributed with $\bar{x}$ $=$ $\mu$ and${SE}$ = $\frac{\sigma}{\sqrt n}$, thus; $\bar{X} \sim \text{Normal}(\bar{x}=\mu, {SE}=\frac{\sigma}{\sqrt n})$.\
+        We therefore proceed to conduct a one tailed hypothesis test via theoretical method since all conditions were satisfied for the central Limit theory to kick in.
+
+#### Inference
+
+```{r 1 Sided HTest, echo = TRUE, fig.width = 8, fig.height = 5.5}
+
+# One tailed Test for the Alternate Hypothesis ####
+statsr::inference(
+   y = agekdbrn,
+   data = data_agekdbrn,
+   type = "ht",
+   method = "theoretical",
+   statistic = "mean",
+   null = 25,
+   alternative = "less",
+   sig_level = 0.05,
+)
+
+```
+
+The hypothesis returned a p-value less than 0.0001, since the z-score was way beyond 3 standard deviations of the null($\mu_{agekdbrn} = 25$), the remainder of the area under the sampling distribution curve is extremely tiny (approaching 0), as observed from p-value returned by the test and as illustrated on the null distribution plot on the right above.\
+***What does this therefore mean?***\
+The p-value literally means the **P(observed or more extreme outcome \|** $H_o$ **is true)**. In the context of the data, this means;
+
+${P}$***(obtaining a random sample of 1280 women who have their first born child at an average age of 22.7258, if in fact women in the US truly have their first born child at the age of 25 ) = \<0.00001***.\
+
+With such a very low p-value, we reject the null hypothesis in favor of the alternate hypothesis due to how far it falls below the significance level of 0.05 and conclude that, the data provides convincing evidence that, the average age at which women have their first born child is indeed less than 25 years for the population at large.
+
+### Question 3
+
+This is inference on proportion via confidence interval. This is to estimate the proportion of Americans who own a firearm at home in the US. Therefore, success is the response `Yes`. The following statistics were reported:
+
+$n$ ${=}$ ***`r nrow(data_gun)`***\
+$\hat{p}$ ${=}$ ***`r (length(grep("Yes", owngun, value = TRUE)))/ nrow(data_gun)`***\
+where $n$ is sample size and $\hat{p}$ is proportion of `Yes` or success.
+
+To calculate the confidence interval for the proportion, some conditions must be met since it relies on the concept of the ***central Limit theorem***.
+
+-   Condition of Independence:
+
+    -   Sample Observations must be independent: Thus observations must be randomly sampled or if its an experimental study, subjects must be randomly assigned to groups. In the context of this inference, the General Social Survey employed a random probability sampling technique to select respondents of the survey and hence the condition of random sampling/assignment is met.\
+    -   If sampling without replacement, $n$ must be greater than ***10%*** of the population. Since ***`r nrow(data_gun)`*** is less than 10% of the American population, and therefore highly unlikely for more persons from the same household to be included in the sample, hence, the condition is satisfied.
+
+We can therefore assume that responses/observations (gun ownership) are independent of each other.
+
+-   Sample Size/Skew Condition:
+
+    -   There should at least 10 success and 10 failures in the sample size. ${np} \geq 10$ and $n(1-p) \geq 10$. Thus, in the context of this sample data,
+
+***`r (nrow(data_gun))`*** ${*}$ ***`r length(grep("Yes", owngun, value = TRUE))  / (nrow(data_gun))`*** $\geq 10$. and
+
+***`r nrow(data_gun)`*** ${*}$ ***(1-*** ***`r length(grep("Yes", owngun, value = TRUE))  / (nrow(data_gun))`*** $\geq$ ${10}$.
+
+With the above conditions met, we can assume the sampling distribution of proportions is nearly normal with $\bar{x}$=${P}$ and ${SE}$=$\sqrt\frac{n(1-p)}{n}$ as the ***Central Limit Theory*** states. The ***Central Limit Theory states that***, sampling distribution of proportions are nearly normally distributed with mean centered at the population proportion and with standard error inversely proportional to sample size. This is denoted as,\
+$\hat{p} \sim \text{Normal}(\bar{x}=p, {SE}=\sqrt\frac{n(1-p)}{n})$\
+Estimating the population proportion is $point\ estimate$ $\pm$ $margin\ of\ error$, which is denoted as
+
+$\hat{p}$ $\pm$ ${z}$ $*$ $SE_{\hat{p}}$ where $SE_{\hat{p}}$ = ${SE}$=$\sqrt\frac{n(1-p)}{n}$ and ${z}$ $*$ $SE_{\hat{p}}$ is the margin of error.\
+We proceed to calculate the confidence interval which will truly capture the true population parameter (confidence level = 0.95).
+
+#### Inference via confidence interval
+
+```{r CI for p, echo = TRUE, fig.width = 8, fig.height = 5.5}
+
+# Inference on proportion via confidence interval ####
+statsr::inference(
+  y = owngun,
+  data = data_gun,
+  type = "ci",
+  method = "theoretical",
+  statistic = "proportion",
+  success = "Yes",
+  conf_level = 0.95
+)
+
+
+```
+
+The above computation returned a confidence interval of ***(0.385 , 0.463)*** at a ***confidence level of 0.95***. In the context of the data, this means 95% of random samples of ***`r nrow(data_gun)`*** of Americans will yield confidence intervals that captures the true population proportion of persons who possess firearms at home.  
+This means, we are 95% confident that the average proportion of Americans who possess firearms at home is between ***0.385 and 0.463***.  
+
